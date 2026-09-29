@@ -1,9 +1,5 @@
 """
-Central application configuration.
-
-Every tunable value is read from an environment variable so nothing is
-hard-coded. Values are validated at import time where practical, with
-Flask surfacing a clear startup error if something required is missing.
+Application configuration for the RAG PDF Chatbot.
 """
 
 import os
@@ -11,92 +7,137 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+# Load .env file when running locally
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-def _get_bool(name: str, default: bool) -> bool:
-    val = os.environ.get(name)
-    if val is None:
-        return default
-    return val.strip().lower() in ("1", "true", "yes", "on")
-
-
 def _get_int(name: str, default: int) -> int:
-    val = os.environ.get(name)
-    if val is None or val.strip() == "":
-        return default
-    try:
-        return int(val)
-    except ValueError:
-        raise RuntimeError(f"Environment variable {name}='{val}' is not a valid integer")
+    value = os.environ.get(name, str(default)).strip()
 
-
-def _get_float(name: str, default: float) -> float:
-    val = os.environ.get(name)
-    if val is None or val.strip() == "":
-        return default
     try:
-        return float(val)
+        return int(value)
     except ValueError:
-        raise RuntimeError(f"Environment variable {name}='{val}' is not a valid float")
+        return default
 
 
 class Settings:
-    # --- Gemini ---
-    GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-    GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash").strip()
-    EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "gemini-embedding-001").strip()
-    EMBEDDING_DIMENSIONS = _get_int("EMBEDDING_DIMENSIONS", 768)
+    # ============================================================
+    # Gemini
+    # ============================================================
 
-    # --- Qdrant ---
-    QDRANT_URL = os.environ.get("QDRANT_URL", "http://localhost:6333").strip()
-    QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", "").strip() or None
-    QDRANT_COLLECTION_NAME = os.environ.get("QDRANT_COLLECTION_NAME", "rag_knowledge_base").strip()
+    GEMINI_API_KEY = os.environ.get(
+        "GEMINI_API_KEY",
+        ""
+    ).strip()
 
-    # --- RAG behavior ---
-    CHUNK_SIZE = _get_int("CHUNK_SIZE", 1200)
-    CHUNK_OVERLAP = _get_int("CHUNK_OVERLAP", 200)
-    TOP_K = _get_int("TOP_K", 5)
-    SIMILARITY_THRESHOLD = _get_float("SIMILARITY_THRESHOLD", 0.55)
+    # Gemini 3.1 Flash-Lite
+    GEMINI_MODEL = os.environ.get(
+        "GEMINI_MODEL",
+        "gemini-3.1-flash-lite"
+    ).strip()
 
-    # --- Upload / Flask ---
-    MAX_UPLOAD_SIZE_MB = _get_int("MAX_UPLOAD_SIZE_MB", 20)
-    MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
-    FLASK_SECRET_KEY = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
-    FLASK_DEBUG = _get_bool("FLASK_DEBUG", False)
-    PORT = _get_int("PORT", 5000)
+    # Gemini embedding model
+    EMBEDDING_MODEL = os.environ.get(
+        "EMBEDDING_MODEL",
+        "gemini-embedding-001"
+    ).strip()
 
-    DATABASE_PATH = BASE_DIR / os.environ.get("DATABASE_PATH", "data/documents.db")
-    UPLOAD_STORAGE_PATH = BASE_DIR / os.environ.get("UPLOAD_STORAGE_PATH", "data/uploads")
+    EMBEDDING_DIMENSIONS = _get_int(
+        "EMBEDDING_DIMENSIONS",
+        768
+    )
 
-    ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt"}
-    ALLOWED_MIME_TYPES = {
-        ".pdf": {"application/pdf"},
-        ".docx": {
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/zip",  # some browsers report docx as generic zip
-            "application/octet-stream",
-        },
-        ".txt": {"text/plain"},
-    }
+    # ============================================================
+    # Qdrant
+    # ============================================================
+
+    QDRANT_URL = os.environ.get(
+        "QDRANT_URL",
+        ""
+    ).strip()
+
+    QDRANT_API_KEY = os.environ.get(
+        "QDRANT_API_KEY",
+        ""
+    ).strip()
+
+    QDRANT_COLLECTION = os.environ.get(
+        "QDRANT_COLLECTION",
+        "rag_documents"
+    ).strip()
+
+    # ============================================================
+    # Application
+    # ============================================================
+
+    MAX_FILE_SIZE_MB = _get_int(
+        "MAX_FILE_SIZE_MB",
+        20
+    )
+
+    TOP_K = _get_int(
+        "TOP_K",
+        5
+    )
+
+    CHUNK_SIZE = _get_int(
+        "CHUNK_SIZE",
+        1000
+    )
+
+    CHUNK_OVERLAP = _get_int(
+        "CHUNK_OVERLAP",
+        150
+    )
+
+    # ============================================================
+    # Paths
+    # ============================================================
+
+    UPLOAD_DIR = BASE_DIR / "uploads"
 
     RAG_PROMPT_PATH = BASE_DIR / "config" / "rag_prompt.txt"
 
+    # ============================================================
+    # Environment validation
+    # ============================================================
+
     @classmethod
     def validate(cls):
-        """Raise a clear error for missing required configuration."""
+        """
+        Validate required environment variables.
+        """
+
         problems = []
+
         if not cls.GEMINI_API_KEY:
-            problems.append("GEMINI_API_KEY is not set.")
+            problems.append(
+                "GEMINI_API_KEY is not set."
+            )
+
         if not cls.QDRANT_URL:
-            problems.append("QDRANT_URL is not set.")
-        if cls.CHUNK_OVERLAP >= cls.CHUNK_SIZE:
-            problems.append("CHUNK_OVERLAP must be smaller than CHUNK_SIZE.")
-        if not (0.0 <= cls.SIMILARITY_THRESHOLD <= 1.0):
-            problems.append("SIMILARITY_THRESHOLD must be between 0 and 1.")
-        return problems
+            problems.append(
+                "QDRANT_URL is not set."
+            )
+
+        if not cls.QDRANT_API_KEY:
+            problems.append(
+                "QDRANT_API_KEY is not set."
+            )
+
+        if problems:
+            raise RuntimeError(
+                "Configuration errors:\n- "
+                + "\n- ".join(problems)
+            )
+
+        cls.UPLOAD_DIR.mkdir(
+            parents=True,
+            exist_ok=True
+        )
 
 
+# Create settings object
 settings = Settings()
