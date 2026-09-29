@@ -46,7 +46,7 @@ def _get_float(name: str, default: float) -> float:
 class Settings:
     # --- Gemini ---
     GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
-    GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash").strip()
+    GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash").strip()
     EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "gemini-embedding-001").strip()
     EMBEDDING_DIMENSIONS = _get_int("EMBEDDING_DIMENSIONS", 768)
 
